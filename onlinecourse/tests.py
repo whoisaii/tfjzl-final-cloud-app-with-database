@@ -18,11 +18,20 @@ class ExamTests(TestCase):
         response = self.client.post(self.url, {'choices': [self.a.pk, self.b.pk]}, follow=True)
         self.assertContains(response, 'Congratulations!')
         self.assertEqual(Submission.objects.get().score, 10)
+        self.assertEqual(response.context['grade'], 10)
+        self.assertEqual(response.context['possible'], 10)
+        self.assertEqual(response.context['percentage'], 100)
+        self.assertTrue(response.redirect_chain[0][0].endswith('/result/'))
 
     def test_partial_or_extra_answers_fail(self):
         for choices in ([self.a.pk], [self.a.pk, self.b.pk, self.c.pk], []):
             self.client.post(self.url, {'choices': choices})
         self.assertEqual(list(Submission.objects.values_list('score', flat=True)), [0, 0, 0])
+        submission = Submission.objects.latest('pk')
+        response = self.client.get(reverse('onlinecourse:show_exam_result', args=[self.course.pk, submission.pk]))
+        self.assertEqual(response.context['grade'], 0)
+        self.assertEqual(response.context['possible'], 10)
+        self.assertFalse(response.context['passed'])
 
     def test_foreign_and_invalid_choices_rejected(self):
         other = Course.objects.create(name='Other')

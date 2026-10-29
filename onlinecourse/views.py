@@ -45,4 +45,16 @@ def submit(request, course_id):
 @login_required
 def show_exam_result(request, course_id, submission_id):
     submission = get_object_or_404(Submission.objects.select_related('enrollment__course'), pk=submission_id, enrollment__course_id=course_id, enrollment__user=request.user)
-    return render(request, 'onlinecourse/exam_result_bootstrap.html', {'submission': submission, 'course': submission.enrollment.course, 'passed': submission.percentage >= 80})
+    # Use the saved question results so later course edits cannot change a grade.
+    grade = sum(result['earned'] for result in submission.results)
+    possible = sum(result['possible'] for result in submission.results)
+    percentage = round(100 * grade / possible, 1) if possible else 0
+    context = {
+        'submission': submission,
+        'course': submission.enrollment.course,
+        'grade': grade,
+        'possible': possible,
+        'percentage': percentage,
+        'passed': percentage >= 80,
+    }
+    return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
